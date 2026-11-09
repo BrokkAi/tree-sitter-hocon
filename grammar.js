@@ -1,202 +1,183 @@
-const json = require("tree-sitter-json/grammar");
+/**
+ * @file HOCON (Human-Optimized Config Object Notation) grammar for tree-sitter
+ * @license MIT
+ *
+ * Follows the Lightbend HOCON specification
+ * (https://github.com/lightbend/config/blob/main/HOCON.md).
+ *
+ * The parser keeps authored structure only. Value concatenation, object
+ * merging, `include` and `${...}` substitution are left to consumers: a
+ * `value` node holds every concatenated piece in order, and the whitespace
+ * between two pieces is the source text between their nodes.
+ */
 
-module.exports = grammar(json, {
+/// <reference types="tree-sitter-cli/dsl" />
+// @ts-check
+
+// Characters the specification forbids in an unquoted string, plus
+// whitespace. `/` is allowed except as the start of a `//` comment.
+const FORBIDDEN = '$"{}\\[\\]:=,+#`^?!@*&\\\\';
+const WHITESPACE = ' \\t\\n\\r\\f\\v\\u00a0\\ufeff\\u2028\\u2029';
+
+function unquotedPattern(extra) {
+  const plain = `[^${FORBIDDEN}${WHITESPACE}/${extra}]`;
+  return new RegExp(`(${plain}|/${plain})+|/`);
+}
+
+module.exports = grammar({
   name: 'hocon',
 
-  extras: $ => [
-    /[ \f\r\t\v]/,
-    $.comment
+  externals: $ => [
+    $._newline,
+    $._error_sentinel,
   ],
-  
-  supertypes: _ => [ ],
+
+  extras: $ => [
+    new RegExp(`[${WHITESPACE}]`),
+    $.comment,
+  ],
+
 
   rules: {
-    comment: _ => token(choice(
-      seq('//', /.*/),
-      seq('#', /.*/),
+    // A document is one braced object, one array, or the fields of an
+    // object whose braces are omitted.
+    document: $ => optional(choice(
+      $.object,
+      $.array,
+      $._fields,
     )),
 
-    document: $ => choice(
-      seq(repeat('\n'), $.array, repeat('\n')),
-      seq(repeat('\n'), $.object, repeat('\n')),
-      commaOrNewLineSeparated(choice($.include, $.pair))
+    comment: _ => token(choice(
+      seq('//', /[^\n]*/),
+      seq('#', /[^\n]*/),
+    )),
+
+    _fields: $ => seq(
+      $._member,
+      repeat(seq($._separator, $._member)),
+      optional($._separator),
     ),
 
-    object: $ => seq("{", commaOrNewLineSeparated(choice($.include, $.pair)), "}"),
+    _member: $ => choice($.field, $.include),
 
-    pair: $ => seq(
-      $.path,
-      $.value
+    // At most one comma, with newlines on either side of it.
+    _separator: $ => choice(
+      seq(',', optional($._newline)),
+      seq($._newline, optional(seq(',', optional($._newline)))),
     ),
 
-    path: $ => choice(repeat1(choice($.string, $.unquoted_path)), $.number),
-
-    value: $ => choice(
-      seq($._pair_separator, $._value),
-      $.object
+    field: $ => seq(
+      field('key', $.path),
+      choice(
+        seq(
+          field('operator', choice(':', '=', '+=')),
+          field('value', $.value),
+        ),
+        // `key { ... }` omits the separator before an object.
+        field('value', alias($._object_value, $.value)),
+      ),
     ),
 
-    _pair_separator: _ => choice(':', '=', '+='),
+    object: $ => seq('{', optional($._fields), '}'),
 
     array: $ => seq(
-      "[", commaOrNewLineSeparated($._value), "]"
+      '[',
+      optional(seq(
+        $.value,
+        repeat(seq($._separator, $.value)),
+        optional($._separator),
+      )),
+      ']',
     ),
 
-    _value: ($, original) => repeat1(choice(
-      original,
-      seq($.number, $.unit),
-      $.unquoted_string, 
+    // One value, or several concatenated on one line.
+    value: $ => repeat1($._piece),
+
+    _object_value: $ => seq($.object, repeat($._piece)),
+
+    _piece: $ => choice(
+      $.object,
+      $.array,
+      $.string,
       $.multiline_string,
+      $.number,
+      $.true,
+      $.false,
+      $.null,
       $.substitution,
-    )),
-
-    string: $ => choice(
-      seq('"', '"'),
-      seq('"', $._string_content, '"')
+      $.unquoted_string,
     ),
 
-    _string_content: $ => repeat1(choice(
-      token.immediate(/[^\\"\n]+/),
-      $.escape_sequence
-    )),
+    // A path is one or more elements joined by `.`. An element is one or
+    // more unquoted or quoted pieces; whitespace between pieces belongs to
+    // the element.
+    path: $ => seq(
+      $.path_element,
+      repeat(seq(token.immediate('.'), $.path_element)),
+    ),
 
-    unquoted_string: _ => {
-      const reserved_symbols = [
-        '$', ':', '=', ',', '+',
-        '#', '`', '^', '?', '!',
-        '?', '*', '&', '"', '\\{',
-        '\\}', '\\[', '\\]', '\\\\', '\\n', '/', ' '
-      ]
-      const allowed_symbol = '[^' + reserved_symbols.join('') + ']'
-
-      // Sequence of allowed symbols. This sequence can contain single
-      // forward slash (/) but should not contain two continuos forward slashes
-      // since // is a comment start
-      const symbols = `/|(${allowed_symbol}|/${allowed_symbol})+`
-
-      return new RegExp(symbols)
-    },
-
-    unquoted_path: _ => {
-      const reserved_symbols = [
-        '$', ':', '=', ',', '+',
-        '#', '`', '^', '?', '!',
-        '?', '*', '&', '"', '\\{',
-        '\\}', '\\[', '\\]', '\\\\', '\\n', '/', '.'
-      ]
-      const allowed_symbol = '[^' + reserved_symbols.join('') + ']'
-      const allowed_symbol_except = symbol => '[^' + [...reserved_symbols, symbol].join('') + ']'
-
-      // Sequence of allowed symbols. This sequence can contain single
-      // forward slash (/) but should not contain two continuos forward slashes
-      // since // is a comment start
-      const rest_symbols = `(${allowed_symbol}|/${allowed_symbol})*`
-
-      // Unquoted path can contail only allowed symbols and singe forward slash.
-      // It can not contail two continuos forward slashes since // is a comment start.
-      // Unquoted path can not begin with word 'include' followed by a space character.
-      const unquoted_path = new RegExp(
-        '(/|i|in|inc|incl|inclu|includ|' +
-          '(i|in|inc|incl|inclu|ilclud)/|' +
-          '(i|in|inc|incl|inclu|includ)/' + allowed_symbol + rest_symbols + '|' +
-          '(' + [
-              '[0-9a-hj-zA-Z_]',
-              `i${allowed_symbol_except('n')}`,
-              `in${allowed_symbol_except('c')}`,
-              `inc${allowed_symbol_except('l')}`,
-              `incl${allowed_symbol_except('u')}`,
-              `inclu${allowed_symbol_except('d')}`,
-              `includ${allowed_symbol_except('e')}`,
-              `include${allowed_symbol_except('\\s')}`,
-          ].join('|') + ')' + rest_symbols  +
-        ')'
-      )
-      return prec.right(separated(unquoted_path, token.immediate('.')))
-    },
-
-
-    multiline_string: _ => seq('"""', token.immediate(/([^"]|"[^"]|""[^"])*"""/)),
-
-    escape_sequence: _ => token.immediate(seq(
-      '\\',
-      /(\"|\\|\/|b|f|n|r|t|u)/
-    )),
+    path_element: $ => prec.right(repeat1(choice(
+      $.unquoted_key,
+      $.string,
+    ))),
 
     substitution: $ => seq(
-      choice('${?', '${'),
-      $.path,
-      '}'
+      choice('${', field('optional', '${?')),
+      field('path', $.path),
+      '}',
     ),
 
     include: $ => seq(
       'include',
-      repeat('\n'),
       choice(
-        seq('required', '(', $._resource_name, ')'),
-        $._resource_name
-      )
+        $._include_target,
+        seq(field('required', 'required'), '(', $._include_target, ')'),
+      ),
     ),
 
-    _resource_name: $ => choice(
-      $.string,
-      seq(choice('url', 'file', 'classpath'), '(', $.string, ')')
+    _include_target: $ => choice(
+      field('resource', $.string),
+      seq(
+        field('kind', choice('url', 'file', 'classpath')),
+        '(',
+        field('resource', $.string),
+        ')',
+      ),
     ),
 
-    _punctuation: _ => choice('.', ','),
+    // A JSON string. Escapes stay inside the token; consumers decode the
+    // token as JSON.
+    string: _ => token(seq(
+      '"',
+      repeat(choice(
+        /[^"\\\n]/,
+        /\\[^\n]/,
+      )),
+      '"',
+    )),
 
-    unit: _ => choice(
-      // Duration format
-      'ns', 'nano', 'nanos', 'nanosecond', 'nanoseconds',
-      'us', 'micro', 'micros', 'microsecond', 'microseconds',
-      'ms', 'milli', 'millis', 'millisecond', 'milliseconds',
-      's', 'second', 'seconds',
-      'm', 'minute', 'minutes',
-      'h', 'hour', 'hours',
-      'd', 'day', 'days',
+    // Raw text between `"""` delimiters. Quotes before the closing `"""`
+    // belong to the content.
+    multiline_string: _ => token(seq(
+      '"""',
+      repeat(choice(
+        /[^"]/,
+        /"[^"]/,
+        /""[^"]/,
+      )),
+      /"""+/,
+    )),
 
-      // Period Format
-      'd', 'day', 'days',
-      'w', 'week', 'weeks',
-      'm', 'mo', 'month', 'months' ,
-      'y', 'year', 'years',
+    number: _ => token(prec(1,
+      /-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?/,
+    )),
 
-      // Size in bytes format
-      'B', 'b', 'byte', 'bytes',
+    true: _ => 'true',
+    false: _ => 'false',
+    null: _ => 'null',
 
-      'kB', 'kilobyte', 'kilobytes',
-      'MB', 'megabyte', 'megabytes',
-      'GB', 'gigabyte', 'gigabytes',
-      'TB', 'terabyte', 'terabytes',
-      'PB', 'petabyte', 'petabytes',
-      'EB', 'exabyte', 'exabytes',
-      'ZB', 'zettabyte', 'zettabytes',
-      'YB', 'yottabyte', 'yottabytes',
+    unquoted_string: _ => token(unquotedPattern('')),
 
-      'K', 'k', 'Ki', 'KiB', 'kibibyte', 'kibibytes',
-      'M', 'm', 'Mi', 'MiB', 'mebibyte', 'mebibytes',
-      'G', 'g', 'Gi', 'GiB', 'gibibyte', 'gibibytes',
-      'T', 't', 'Ti', 'TiB', 'tebibyte', 'tebibytes',
-      'P', 'p', 'Pi', 'PiB', 'pebibyte', 'pebibytes',
-      'E', 'e', 'Ei', 'EiB', 'exbibyte', 'exbibytes',
-      'Z', 'z', 'Zi', 'ZiB', 'zebibyte', 'zebibytes',
-      'Y', 'y', 'Yi', 'YiB', 'yobibyte', 'yobibytes',
-    ),
-
-  }
+    unquoted_key: _ => token(unquotedPattern('.')),
+  },
 });
-
-function commaOrNewLineSeparated(rule) {
-  const separator = choice(seq(',', repeat('\n')), repeat1('\n'));
-  return seq(
-    repeat('\n'),
-    optional(separated(rule, separator)),
-  );
-}
-
-function separated(rule, separator) {
-  return seq(
-    rule,
-    repeat(seq(separator, rule)),
-    optional(separator)
-  )
-}

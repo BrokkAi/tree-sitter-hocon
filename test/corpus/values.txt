@@ -1,0 +1,337 @@
+========================================
+Scalars
+========================================
+
+a = 1
+b = -2.5e3
+c = true
+d = false
+e = null
+f = "s"
+g = unquoted
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (true)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (false)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (null)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (string)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (unquoted_string))))
+
+========================================
+String escapes
+========================================
+
+a = "q\"uote\\ \u0041 \n"
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (string))))
+
+========================================
+Multiline strings
+========================================
+
+a = """one
+"two" ""three"""
+b = """x"""""
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (multiline_string)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (multiline_string))))
+
+========================================
+Unquoted strings with slashes
+========================================
+
+a = /var/log/app
+b = a//comment
+c = a/
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (unquoted_string)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (unquoted_string)))
+  (comment)
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (unquoted_string)
+      (unquoted_string))))
+
+========================================
+Value concatenation
+========================================
+
+a = 10 s
+b = foo bar "baz"
+c = 10s
+d = trueish
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)
+      (unquoted_string)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (unquoted_string)
+      (unquoted_string)
+      (string)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)
+      (unquoted_string)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (unquoted_string))))
+
+========================================
+Arrays with mixed separators
+========================================
+
+a = [1
+2, 3
+,4,]
+b = []
+c = [ [1], {x = 1} ]
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (array
+        (value
+          (number))
+        (value
+          (number))
+        (value
+          (number))
+        (value
+          (number)))))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (array)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (array
+        (value
+          (array
+            (value
+              (number))))
+        (value
+          (object
+            (field
+              key: (path
+                (path_element
+                  (unquoted_key)))
+              value: (value
+                (number)))))))))
+
+========================================
+Substitutions
+========================================
+
+a = ${b.c}
+d = ${?HOME}
+e = ${x}${y}
+f = hello ${name} "!"
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (substitution
+        path: (path
+          (path_element
+            (unquoted_key))
+          (path_element
+            (unquoted_key))))))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (substitution
+        path: (path
+          (path_element
+            (unquoted_key))))))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (substitution
+        path: (path
+          (path_element
+            (unquoted_key))))
+      (substitution
+        path: (path
+          (path_element
+            (unquoted_key))))))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (unquoted_string)
+      (substitution
+        path: (path
+          (path_element
+            (unquoted_key))))
+      (string))))
+
+========================================
+Object and array concatenation
+========================================
+
+a = ${base} { x = 1 }
+b = [1] [2]
+c { x = 1 } { y = 2 }
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (substitution
+        path: (path
+          (path_element
+            (unquoted_key))))
+      (object
+        (field
+          key: (path
+            (path_element
+              (unquoted_key)))
+          value: (value
+            (number))))))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (array
+        (value
+          (number)))
+      (array
+        (value
+          (number)))))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (object
+        (field
+          key: (path
+            (path_element
+              (unquoted_key)))
+          value: (value
+            (number))))
+      (object
+        (field
+          key: (path
+            (path_element
+              (unquoted_key)))
+          value: (value
+            (number)))))))

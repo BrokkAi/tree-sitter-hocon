@@ -1,0 +1,53 @@
+========================================
+Include forms
+========================================
+
+include "a.conf"
+include url("http://x/a.conf")
+include file("b.conf")
+include classpath("c.conf")
+include required("d.conf")
+include required(file("e.conf"))
+
+---
+
+(document
+  (include
+    resource: (string))
+  (include
+    resource: (string))
+  (include
+    resource: (string))
+  (include
+    resource: (string))
+  (include
+    resource: (string))
+  (include
+    resource: (string)))
+
+========================================
+Include inside an object
+========================================
+
+a {
+  include "inner.conf"
+  b = 1
+}
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (object
+        (include
+          resource: (string))
+        (field
+          key: (path
+            (path_element
+              (unquoted_key)))
+          value: (value
+            (number)))))))

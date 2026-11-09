@@ -1,16 +1,36 @@
-# Hocon grammar for [tree-sitter](https://github.com/tree-sitter/tree-sitter)
+# tree-sitter-hocon
 
-## Syntax highlighting
-Tree-sitter highting in neovim: ![image](https://user-images.githubusercontent.com/14187674/149541157-651517b5-716a-40a3-9d58-28f2bd86dd1b.png)
-For highlighting to work you need to tell neovim to set right filetype. To do it put this in your init.lua:  
-```lua
-local hocon_group = vim.api.nvim_create_augroup("hocon", { clear = true })
-vim.api.nvim_create_autocmd(
-  { 'BufNewFile', 'BufRead' }, 
-  { group = hocon_group, pattern = '*/resources/*.conf', command = 'set ft=hocon' }
-)
+Brokk's maintained [Tree-sitter](https://tree-sitter.github.io/) grammar for
+[HOCON](https://github.com/lightbend/config/blob/main/HOCON.md), the
+configuration format of Akka, Akka.NET and Lightbend Config. It is published to
+crates.io as `brokk-tree-sitter-hocon`.
+
+Forked from [`antosha417/tree-sitter-hocon`](https://github.com/antosha417/tree-sitter-hocon)
+and rewritten as a standalone grammar:
+
+- Newlines separate fields and array elements only where the parser can
+  accept a separator (an external scanner decides); elsewhere they are
+  whitespace.
+- Paths keep each `.`-separated element as a `path_element` node, so quoted
+  elements such as `"a.b".c` and whitespace inside an element (`a b.c`) stay
+  exact.
+- A `value` node holds every concatenated piece in order (`10 s`,
+  `foo ${bar} "baz"`, `${base} { x = 1 }`).
+- `include` with `url(...)`, `file(...)`, `classpath(...)` and
+  `required(...)`, `${path}` and `${?path}` substitutions, `+=`, and
+  triple-quoted strings are parsed.
+
+The grammar records authored structure only: object merging, includes and
+substitutions are left to consumers.
+
+## Development
+
+```bash
+npm ci --ignore-scripts && npm rebuild tree-sitter-cli
+npx tree-sitter generate
+npx tree-sitter test
+cargo test
 ```
 
-## Useful links
-[hocon-playground](https://hocon-playground.herokuapp.com/)  
-[hocon-description](https://github.com/lightbend/config/blob/master/HOCON.md)
+Releases are published from a tag by `.github/workflows/publish.yml` through
+crates.io trusted publishing.

@@ -1,0 +1,315 @@
+========================================
+Braceless root with dotted path
+========================================
+
+akka.remote.dot-netty.tcp.enable-ssl = true
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key))
+      (path_element
+        (unquoted_key))
+      (path_element
+        (unquoted_key))
+      (path_element
+        (unquoted_key))
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (true))))
+
+========================================
+Separators and operators
+========================================
+
+a = 1
+b : 2
+c += 3
+d { e = 4 }
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (object
+        (field
+          key: (path
+            (path_element
+              (unquoted_key)))
+          value: (value
+            (number)))))))
+
+========================================
+Comma and newline separators
+========================================
+
+a = 1, b = 2
+c = 3,
+d = 4
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number))))
+
+========================================
+Braced root object
+========================================
+
+{
+  a = 1
+  b = 2
+}
+
+---
+
+(document
+  (object
+    (field
+      key: (path
+        (path_element
+          (unquoted_key)))
+      value: (value
+        (number)))
+    (field
+      key: (path
+        (path_element
+          (unquoted_key)))
+      value: (value
+        (number)))))
+
+========================================
+Root array
+========================================
+
+[1, 2]
+
+---
+
+(document
+  (array
+    (value
+      (number))
+    (value
+      (number))))
+
+========================================
+Empty document
+========================================
+
+
+---
+
+(document)
+
+========================================
+Comments
+========================================
+
+# hash comment
+a = 1 // trailing
+// slashes
+b = 2 # after
+
+---
+
+(document
+  (comment)
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (comment)
+  (comment)
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (comment))
+
+========================================
+Quoted path elements
+========================================
+
+"a.b".c = 1
+"" = 2
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (string))
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (string)))
+    value: (value
+      (number))))
+
+========================================
+Whitespace inside a path element
+========================================
+
+a b.c d = 1
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)
+        (unquoted_key))
+      (path_element
+        (unquoted_key)
+        (unquoted_key)))
+    value: (value
+      (number))))
+
+========================================
+Numeric path elements
+========================================
+
+10.5 = x
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key))
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (unquoted_string))))
+
+========================================
+Keyword-prefixed keys
+========================================
+
+includes = 1
+include-me = 2
+true = 3
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number)))
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (number))))
+
+========================================
+Nested objects
+========================================
+
+a {
+  b {
+    c = 1
+  }
+  d.e = 2
+}
+
+---
+
+(document
+  (field
+    key: (path
+      (path_element
+        (unquoted_key)))
+    value: (value
+      (object
+        (field
+          key: (path
+            (path_element
+              (unquoted_key)))
+          value: (value
+            (object
+              (field
+                key: (path
+                  (path_element
+                    (unquoted_key)))
+                value: (value
+                  (number))))))
+        (field
+          key: (path
+            (path_element
+              (unquoted_key))
+            (path_element
+              (unquoted_key)))
+          value: (value
+            (number)))))))

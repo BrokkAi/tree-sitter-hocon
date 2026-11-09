@@ -1,44 +1,43 @@
-//! This crate provides hocon language support for the [tree-sitter][] parsing library.
+//! This crate provides HOCON language support for the [tree-sitter][] parsing library.
 //!
-//! Typically, you will use the [language][language func] function to add this language to a
+//! Typically, you will use the [LANGUAGE][] constant to add this language to a
 //! tree-sitter [Parser][], and then use the parser to parse some code:
 //!
 //! ```
-//! let code = "";
+//! let code = "akka.remote.dot-netty.tcp.enable-ssl = true\n";
 //! let mut parser = tree_sitter::Parser::new();
-//! parser.set_language(tree_sitter_hocon::language()).expect("Error loading hocon grammar");
+//! let language = brokk_tree_sitter_hocon::LANGUAGE;
+//! parser
+//!     .set_language(&language.into())
+//!     .expect("Error loading HOCON parser");
 //! let tree = parser.parse(code, None).unwrap();
+//! assert!(!tree.root_node().has_error());
 //! ```
 //!
-//! [Language]: https://docs.rs/tree-sitter/*/tree_sitter/struct.Language.html
-//! [language func]: fn.language.html
 //! [Parser]: https://docs.rs/tree-sitter/*/tree_sitter/struct.Parser.html
 //! [tree-sitter]: https://tree-sitter.github.io/
 
-use tree_sitter::Language;
+use tree_sitter_language::LanguageFn;
 
 extern "C" {
-    fn tree_sitter_hocon() -> Language;
+    fn brokk_tree_sitter_hocon() -> *const ();
 }
 
-/// Get the tree-sitter [Language][] for this grammar.
+/// The tree-sitter [`LanguageFn`][LanguageFn] for this grammar.
 ///
-/// [Language]: https://docs.rs/tree-sitter/*/tree_sitter/struct.Language.html
-pub fn language() -> Language {
-    unsafe { tree_sitter_hocon() }
-}
+/// [LanguageFn]: https://docs.rs/tree-sitter-language/*/tree_sitter_language/struct.LanguageFn.html
+pub const LANGUAGE: LanguageFn = unsafe { LanguageFn::from_raw(brokk_tree_sitter_hocon) };
+
+/// The Brokk-maintained grammar package version.
+pub const GRAMMAR_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// The content of the [`node-types.json`][] file for this grammar.
 ///
 /// [`node-types.json`]: https://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types
-pub const NODE_TYPES: &'static str = include_str!("../../src/node-types.json");
+pub const NODE_TYPES: &str = include_str!("../../src/node-types.json");
 
-// Uncomment these to include any queries that this grammar contains
-
-// pub const HIGHLIGHTS_QUERY: &'static str = include_str!("../../queries/highlights.scm");
-// pub const INJECTIONS_QUERY: &'static str = include_str!("../../queries/injections.scm");
-// pub const LOCALS_QUERY: &'static str = include_str!("../../queries/locals.scm");
-// pub const TAGS_QUERY: &'static str = include_str!("../../queries/tags.scm");
+/// The syntax highlighting query for this language.
+pub const HIGHLIGHTS_QUERY: &str = include_str!("../../queries/highlights.scm");
 
 #[cfg(test)]
 mod tests {
@@ -46,7 +45,35 @@ mod tests {
     fn test_can_load_grammar() {
         let mut parser = tree_sitter::Parser::new();
         parser
-            .set_language(super::language())
-            .expect("Error loading hocon language");
+            .set_language(&super::LANGUAGE.into())
+            .expect("Error loading HOCON parser");
+    }
+
+    #[test]
+    fn parses_from_multiple_threads() {
+        // The external scanner keeps no global state, so concurrent parses
+        // must agree with a sequential one.
+        let source = "a {\n  b = [1\n2]\n  c = ${d} x\n}\n";
+        let expected = {
+            let mut parser = tree_sitter::Parser::new();
+            parser.set_language(&super::LANGUAGE.into()).unwrap();
+            parser.parse(source, None).unwrap().root_node().to_sexp()
+        };
+        let threads: Vec<_> = (0..8)
+            .map(|_| {
+                std::thread::spawn(move || {
+                    let mut parser = tree_sitter::Parser::new();
+                    parser.set_language(&super::LANGUAGE.into()).unwrap();
+                    (0..200)
+                        .map(|_| parser.parse(source, None).unwrap().root_node().to_sexp())
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        for thread in threads {
+            for tree in thread.join().unwrap() {
+                assert_eq!(tree, expected);
+            }
+        }
     }
 }

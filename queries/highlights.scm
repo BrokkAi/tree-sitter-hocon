@@ -3,35 +3,34 @@
 [(null) (true) (false)] @constant.builtin
 
 (number) @number
-(unit) @keyword
 (string) @string
 (multiline_string) @string
-(string (escape_sequence) @string.escape)
 (unquoted_string) @string
 
-[ "url"
+[
+  "url"
   "file"
   "classpath"
   "required"
+  "include"
 ] @keyword
 
-(include "include" @include)
-
 (substitution ["${" "${?" "}"] @punctuation.special)
-(substitution (_) @field)
+(substitution (path) @variable)
 
-(path (_) @field)
-(value [":" "=" "+=" ] @operator)
+(field key: (path) @property)
+(field operator: _ @operator)
 
 [
- "("
- ")"
- "["
- "]"
- "{"
- "}"
-]  @punctuation.bracket
+  "("
+  ")"
+  "["
+  "]"
+  "{"
+  "}"
+] @punctuation.bracket
 
-[ "," ] @punctuation.delimiter
-(unquoted_path "." @punctuation.delimiter)
-
+[
+  ","
+  "."
+] @punctuation.delimiter

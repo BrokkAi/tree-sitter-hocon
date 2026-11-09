@@ -1,0 +1,40 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "hocon",
+      "camelcase": "HOCON",
+      "scope": "source.hocon",
+      "path": ".",
+      "file-types": [
+        "hocon",
+        "conf"
+      ],
+      "highlights": "queries/highlights.scm"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Brokk-maintained Tree-sitter grammar for HOCON",
+    "authors": [
+      {
+        "name": "Anton Kudryavtsev"
+      },
+      {
+        "name": "Brokk"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/BrokkAi/tree-sitter-hocon"
+    }
+  },
+  "bindings": {
+    "c": false,
+    "go": false,
+    "node": false,
+    "python": false,
+    "rust": true,
+    "swift": false
+  }
+}

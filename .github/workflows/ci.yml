@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - grammar.js
+      - src/**
+      - test/**
+      - bindings/**
+      - Cargo.toml
+      - Cargo.lock
+  pull_request:
+    paths:
+      - grammar.js
+      - src/**
+      - test/**
+      - bindings/**
+      - Cargo.toml
+      - Cargo.lock
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test parser
+    runs-on: ${{matrix.os}}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          cache: npm
+          node-version: 22
+      - name: Install pinned tree-sitter CLI
+        shell: bash
+        run: |
+          npm ci --ignore-scripts
+          npm rebuild tree-sitter-cli
+      - name: Verify generated parser
+        shell: bash
+        run: |
+          npx tree-sitter generate
+          git diff --exit-code -- src
+      - name: Run parser tests
+        run: npx tree-sitter test
+      - name: Run Rust tests
+        run: cargo test --locked
