@@ -11,6 +11,9 @@ on:
       - bindings/**
       - Cargo.toml
       - Cargo.lock
+      - package.json
+      - package-lock.json
+      - .github/workflows/ci.yml
   pull_request:
     paths:
       - grammar.js
@@ -19,6 +22,9 @@ on:
       - bindings/**
       - Cargo.toml
       - Cargo.lock
+      - package.json
+      - package-lock.json
+      - .github/workflows/ci.yml
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
@@ -31,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-14]
+        os: [ubuntu-latest, windows-latest, macos-15]
     steps:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -54,3 +60,6 @@ jobs:
         run: npx tree-sitter test
       - name: Run Rust tests
         run: cargo test --locked
+      - name: Verify crate packaging
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo publish --dry-run --locked
